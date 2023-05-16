@@ -39,7 +39,11 @@ static int autoprobe_addr_count = 5;
 static dev_t ddcci_cdev_first;
 static dev_t ddcci_cdev_next;
 static dev_t ddcci_cdev_end;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+static DEFINE_SEMAPHORE(core_lock, 1);
+#else
 static DEFINE_SEMAPHORE(core_lock);
+#endif
 
 struct bus_type ddcci_bus_type;
 EXPORT_SYMBOL_GPL(ddcci_bus_type);
