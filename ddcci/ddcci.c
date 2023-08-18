@@ -12,7 +12,7 @@
  */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-#include <asm-generic/fcntl.h>
+#include <linux/fcntl.h>
 #include <linux/cdev.h>
 #include <linux/delay.h>
 #include <linux/device.h>
@@ -21,7 +21,6 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/rwsem.h>
-#include <linux/sem.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <linux/version.h>
@@ -40,11 +39,7 @@ static bool module_initialized = false;
 static dev_t ddcci_cdev_first;
 static dev_t ddcci_cdev_next;
 static dev_t ddcci_cdev_end;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
-static DEFINE_SEMAPHORE(core_lock, 1);
-#else
-static DEFINE_SEMAPHORE(core_lock);
-#endif
+static DEFINE_MUTEX(core_lock);
 
 struct bus_type ddcci_bus_type;
 EXPORT_SYMBOL_GPL(ddcci_bus_type);
@@ -63,7 +58,7 @@ static_assert(sizeof_field(struct ddcci_device, module) > 8);
 struct ddcci_bus_drv_data {
 	unsigned long quirks;
 	struct i2c_client *i2c_dev;
-	struct semaphore sem;
+	struct mutex lock;
 	unsigned char recv_buffer[DDCCI_RECV_BUFFER_SIZE];
 };
 
@@ -171,7 +166,7 @@ static int __ddcci_write_block(struct i2c_client *client, unsigned char addr,
 /*
  * Write a message to the DDC/CI bus.
  *
- * You must hold the bus semaphore when calling this function.
+ * You must hold the bus mutex when calling this function.
  */
 static int ddcci_write(struct i2c_client *client, unsigned char addr,
 		       bool p_flag, const unsigned char *data,
@@ -277,7 +272,7 @@ out_err:
 /*
  * Read a response from the DDC/CI bus
  *
- * You must hold the bus semaphore when calling this function.
+ * You must hold the bus mutex when calling this function.
  */
 static int ddcci_read(struct i2c_client *client, unsigned char addr,
 		      bool p_flag, unsigned char *buf, unsigned char len)
@@ -614,10 +609,10 @@ static ssize_t ddcci_cdev_read(struct file *filp, char __user *buffer,
 
 	/* Lock mutex */
 	if (nonblocking) {
-		if (down_trylock(&dev->bus_drv_data->sem))
+		if (mutex_trylock(&dev->bus_drv_data->lock))
 			return -EAGAIN;
 	} else {
-		if (down_interruptible(&dev->bus_drv_data->sem))
+		if (mutex_lock_interruptible(&dev->bus_drv_data->lock))
 			return -ERESTARTSYS;
 	}
 
@@ -634,7 +629,7 @@ static ssize_t ddcci_cdev_read(struct file *filp, char __user *buffer,
 	}
 
 out:
-	up(&dev->bus_drv_data->sem);
+	mutex_unlock(&dev->bus_drv_data->lock);
 	return ret;
 }
 
@@ -656,10 +651,10 @@ static ssize_t ddcci_cdev_write(struct file *filp, const char __user *buffer,
 
 	/* Lock mutex */
 	if (nonblocking) {
-		if (down_trylock(&dev->bus_drv_data->sem))
+		if (mutex_trylock(&dev->bus_drv_data->lock))
 			return -EAGAIN;
 	} else {
-		if (down_interruptible(&dev->bus_drv_data->sem))
+		if (mutex_lock_interruptible(&dev->bus_drv_data->lock))
 			return -ERESTARTSYS;
 	}
 
@@ -677,12 +672,12 @@ static ssize_t ddcci_cdev_write(struct file *filp, const char __user *buffer,
 
 	if (ret >= 0) {
 		msleep(delay);
-		up(&dev->bus_drv_data->sem);
+		mutex_unlock(&dev->bus_drv_data->lock);
 		return count;
 	}
 
 err_out:
-	up(&dev->bus_drv_data->sem);
+	mutex_unlock(&dev->bus_drv_data->lock);
 	return ret;
 }
 
@@ -1000,11 +995,11 @@ static void ddcci_device_release(struct device *dev)
 
 	/* Teardown chardev */
 	if (dev->devt) {
-		down(&core_lock);
+		mutex_lock(&core_lock);
 		if (device->cdev.dev == ddcci_cdev_next-1)
 			ddcci_cdev_next--;
 		cdev_del(&device->cdev);
-		up(&core_lock);
+		mutex_unlock(&core_lock);
 	}
 
 	/* Free capability string */
@@ -1152,12 +1147,12 @@ int ddcci_device_write(struct ddcci_device *dev, bool p_flag,
 {
 	int ret;
 
-	if (down_interruptible(&dev->bus_drv_data->sem))
+	if (mutex_lock_interruptible(&dev->bus_drv_data->lock))
 		return -EAGAIN;
 
 	ret = ddcci_write(dev->bus_drv_data->i2c_dev, dev->inner_addr, p_flag, data, length);
 	msleep(delay);
-	up(&dev->bus_drv_data->sem);
+	mutex_unlock(&dev->bus_drv_data->lock);
 	return ret;
 }
 EXPORT_SYMBOL(ddcci_device_write);
@@ -1174,11 +1169,11 @@ int ddcci_device_read(struct ddcci_device *dev, bool p_flag,
 {
 	int ret;
 
-	if (down_interruptible(&dev->bus_drv_data->sem))
+	if (mutex_lock_interruptible(&dev->bus_drv_data->lock))
 		return -EAGAIN;
 
 	ret = ddcci_read(dev->bus_drv_data->i2c_dev, dev->inner_addr, p_flag, buffer, length);
-	up(&dev->bus_drv_data->sem);
+	mutex_unlock(&dev->bus_drv_data->lock);
 	return ret;
 }
 EXPORT_SYMBOL(ddcci_device_read);
@@ -1200,7 +1195,7 @@ int ddcci_device_writeread(struct ddcci_device *dev, bool p_flag,
 {
 	int ret;
 
-	if (down_interruptible(&dev->bus_drv_data->sem))
+	if (mutex_lock_interruptible(&dev->bus_drv_data->lock))
 		return -EAGAIN;
 
 	ret = ddcci_write(dev->bus_drv_data->i2c_dev, dev->inner_addr, p_flag, buffer, length);
@@ -1209,7 +1204,7 @@ int ddcci_device_writeread(struct ddcci_device *dev, bool p_flag,
 	msleep(delay);
 	ret = ddcci_read(dev->bus_drv_data->i2c_dev, dev->inner_addr, p_flag, buffer, maxlength);
 err:
-	up(&dev->bus_drv_data->sem);
+	mutex_unlock(&dev->bus_drv_data->lock);
 	return ret;
 }
 EXPORT_SYMBOL(ddcci_device_writeread);
@@ -1472,7 +1467,7 @@ static int ddcci_detect_device(struct i2c_client *client, unsigned char addr,
 	struct ddcci_bus_drv_data *drv_data = i2c_get_clientdata(client);
 	struct ddcci_device *device = NULL;
 
-	down(&drv_data->sem);
+	mutex_lock(&drv_data->lock);
 
 	/* Allocate buffer big enough for any capability string */
 	buffer = kmalloc(16384, GFP_KERNEL);
@@ -1586,14 +1581,14 @@ static int ddcci_detect_device(struct i2c_client *client, unsigned char addr,
 	}
 
 	/* Setup chardev */
-	down(&core_lock);
+	mutex_lock(&core_lock);
 	ret = ddcci_setup_char_device(device);
-	up(&core_lock);
+	mutex_unlock(&core_lock);
 	if (ret)
 		goto err_free;
 
-	/* Release semaphore and add device to the tree */
-	up(&drv_data->sem);
+	/* Release mutex and add device to the tree */
+	mutex_unlock(&drv_data->lock);
 	pr_debug("found device at %d:%02x:%02x\n", client->adapter->nr, outer_addr, addr);
 	ret = device_add(&device->dev);
 	if (ret)
@@ -1603,7 +1598,7 @@ static int ddcci_detect_device(struct i2c_client *client, unsigned char addr,
 err_free:
 	put_device(&device->dev);
 err_end:
-	up(&drv_data->sem);
+	mutex_unlock(&drv_data->lock);
 end:
 	kfree(buffer);
 	return ret;
@@ -1694,7 +1689,7 @@ static int ddcci_probe(struct i2c_client *client, const struct i2c_device_id *id
 	if (!drv_data)
 		return -ENOMEM;
 	drv_data->i2c_dev = client;
-	sema_init(&drv_data->sem, 1);
+	mutex_init(&drv_data->lock);
 
 	/* Set i2c client data */
 	i2c_set_clientdata(client, drv_data);
@@ -1783,7 +1778,7 @@ static int ddcci_remove(struct i2c_client *client)
 	struct ddcci_bus_drv_data *drv_data = i2c_get_clientdata(client);
 	struct device *dev;
 
-	down(&drv_data->sem);
+	mutex_lock(&drv_data->lock);
 	while (1) {
 		dev = bus_find_device(&ddcci_bus_type, NULL, client,
 				      ddcci_remove_helper);
@@ -1792,7 +1787,7 @@ static int ddcci_remove(struct i2c_client *client)
 		device_unregister(dev);
 		put_device(dev);
 	}
-	up(&drv_data->sem);
+	mutex_unlock(&drv_data->lock);
 	return 0;
 }
 
