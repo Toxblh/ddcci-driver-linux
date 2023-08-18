@@ -36,6 +36,7 @@ static unsigned int delay = 60;
 static unsigned short autoprobe_addrs[127] = {0xF0, 0xF2, 0xF4, 0xF6, 0xF8};
 static int autoprobe_addr_count = 5;
 
+static bool module_initialized = false;
 static dev_t ddcci_cdev_first;
 static dev_t ddcci_cdev_next;
 static dev_t ddcci_cdev_end;
@@ -931,7 +932,7 @@ ATTRIBUTE_GROUPS(ddcci_char_device);
 
 /* DDC/CI bus */
 
-static int ddcci_device_uevent(struct device *dev, struct kobj_uevent_env *env)
+static int ddcci_device_uevent(CSTRUCT device *dev, struct kobj_uevent_env *env)
 {
 	struct ddcci_device	*device = to_ddcci_device(dev);
 	char model[ARRAY_SIZE(device->model)];
@@ -1011,7 +1012,7 @@ static void ddcci_device_release(struct device *dev)
 	kfree(device);
 }
 
-static char *ddcci_devnode(struct device *dev,
+static char *ddcci_devnode(CSTRUCT device *dev,
 			 umode_t *mode, kuid_t *uid, kgid_t *gid)
 {
 	struct ddcci_device *device;
@@ -1021,7 +1022,7 @@ static char *ddcci_devnode(struct device *dev,
 			 device->i2c_client->adapter->nr);
 }
 
-static char *ddcci_dependent_devnode(struct device *dev,
+static char *ddcci_dependent_devnode(CSTRUCT device *dev,
 			 umode_t *mode, kuid_t *uid, kgid_t *gid)
 {
 	struct ddcci_device *device;
@@ -1065,7 +1066,7 @@ static struct device_type ddcci_dependent_type = {
  * ddcci_verify_device - return parameter as ddcci_device, or NULL
  * @dev: device, probably from some driver model iterator
  */
-struct ddcci_device *ddcci_verify_device(struct device *dev)
+struct ddcci_device *ddcci_verify_device(CSTRUCT device *dev)
 {
 	if (unlikely(!dev))
 		return NULL;
@@ -1100,7 +1101,7 @@ int ddcci_register_driver(struct module *owner, struct ddcci_driver *driver)
 	int ret;
 
 	/* Can't register until after driver model init */
-	if (unlikely(WARN_ON(!ddcci_bus_type.p)))
+	if (unlikely(WARN_ON(!smp_load_acquire(&module_initialized))))
 		return -EAGAIN;
 
 	pr_debug("registering driver [%s]\n", driver->driver.name);
@@ -1672,8 +1673,14 @@ static int ddcci_detect(struct i2c_client *client, struct i2c_board_info *info)
 }
 
 /* I2C probe function */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+static int ddcci_probe(struct i2c_client *client)
+{
+	const struct i2c_device_id *id = i2c_client_get_device_id(client);
+#else
 static int ddcci_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
+#endif
 	int i, ret = -ENODEV, tmp;
 	unsigned char main_addr, addr;
 	struct ddcci_bus_drv_data *drv_data;
@@ -1858,6 +1865,7 @@ static int __init ddcci_module_init(void)
 	}
 
 	pr_debug("ddcci driver initialized\n");
+	smp_store_release(&module_initialized, true);
 
 	return 0;
 
@@ -1875,6 +1883,7 @@ err_chrdevreg:
 static void __exit ddcci_module_exit(void)
 {
 	struct device *dev;
+	smp_store_release(&module_initialized, false);
 
 	while (1) {
 		dev = bus_find_device(&ddcci_bus_type, NULL, NULL, ddcci_remove_helper);

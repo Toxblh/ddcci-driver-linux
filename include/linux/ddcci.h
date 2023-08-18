@@ -17,6 +17,12 @@
 #include <linux/mod_devicetable.h>
 #include <linux/device.h>
 #include <linux/cdev.h>
+#include <linux/version.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
+#define CSTRUCT const struct
+#else
+#define CSTRUCT struct
+#endif
 
 #define DDCCI_MODULE_PREFIX "ddcci:"
 
@@ -132,7 +138,7 @@ int ddcci_register_driver(struct module *owner, struct ddcci_driver *driver);
 	ddcci_register_driver(THIS_MODULE, driver)
 void ddcci_del_driver(struct ddcci_driver *driver);
 
-struct ddcci_device *ddcci_verify_device(struct device *dev);
+struct ddcci_device *ddcci_verify_device(CSTRUCT device *dev);
 
 #define module_ddcci_driver(__ddcci_driver) \
 	module_driver(__ddcci_driver, ddcci_add_driver, \
