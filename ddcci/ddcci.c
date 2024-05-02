@@ -1666,7 +1666,7 @@ static int ddcci_detect(struct i2c_client *client, struct i2c_board_info *info)
 	pr_debug("detected %d:%02x\n", client->adapter->nr, outer_addr);
 
 	/* set device type */
-	strlcpy(info->type, (outer_addr == DDCCI_DEFAULT_DEVICE_ADDR) ? "ddcci" : "ddcci-dependent", I2C_NAME_SIZE);
+	strscpy(info->type, (outer_addr == DDCCI_DEFAULT_DEVICE_ADDR) ? "ddcci" : "ddcci-dependent", I2C_NAME_SIZE);
 
 	return 0;
 }
@@ -1824,7 +1824,7 @@ static struct i2c_driver ddcci_driver = {
 	#else
 	.remove		= ddcci_remove,
 	#endif
-	.class		= I2C_CLASS_DDC,
+	.class		= I2C_CLASS_SPD,
 	.detect		= ddcci_detect,
 	.address_list	= I2C_ADDRS(
 		DDCCI_DEFAULT_DEVICE_ADDR>>1
