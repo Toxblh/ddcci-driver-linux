@@ -88,6 +88,15 @@ static int ddcci_monitor_readctrl(struct ddcci_device *device,
 	return -EIO;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 10, 0)
+static bool ddcci_backlight_controls_device(struct backlight_device *bl,
+				   struct device *display_dev)
+{
+	struct ddcci_monitor_drv_data *drv_data = bl_get_data(bl);
+
+	return drv_data->fb_dev == NULL || drv_data->fb_dev == display_dev;
+}
+#else
 static int ddcci_backlight_check_fb(struct backlight_device *bl,
 				   struct fb_info *info)
 {
@@ -95,6 +104,7 @@ static int ddcci_backlight_check_fb(struct backlight_device *bl,
 
 	return drv_data->fb_dev == NULL || drv_data->fb_dev == info->dev;
 }
+#endif
 
 static int ddcci_backlight_update_status(struct backlight_device *bl)
 {
@@ -135,7 +145,11 @@ static const struct backlight_ops ddcci_backlight_ops = {
 	.options	= 0,
 	.update_status	= ddcci_backlight_update_status,
 	.get_brightness = ddcci_backlight_get_brightness,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 10, 0)
+	.controls_device = ddcci_backlight_controls_device,
+#else
 	.check_fb	= ddcci_backlight_check_fb,
+#endif
 };
 
 static const char *ddcci_monitor_vcp_name(unsigned char vcp)
