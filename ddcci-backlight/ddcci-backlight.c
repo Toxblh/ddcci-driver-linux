@@ -102,7 +102,7 @@ static int ddcci_backlight_check_fb(struct backlight_device *bl,
 {
 	struct ddcci_monitor_drv_data *drv_data = bl_get_data(bl);
 
-	return drv_data->fb_dev == NULL || drv_data->fb_dev == info->dev;
+	return drv_data->fb_dev == NULL || drv_data->fb_dev == info->device;
 }
 #endif
 
