@@ -1824,7 +1824,9 @@ static struct i2c_driver ddcci_driver = {
 	#else
 	.remove		= ddcci_remove,
 	#endif
-	.class		= I2C_CLASS_SPD,
+	#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+	.class		= I2C_CLASS_DDC,
+	#endif
 	.detect		= ddcci_detect,
 	.address_list	= I2C_ADDRS(
 		DDCCI_DEFAULT_DEVICE_ADDR>>1
@@ -1840,6 +1842,11 @@ static int __init ddcci_module_init(void)
 	int ret;
 
 	pr_debug("initializing ddcci driver\n");
+
+	#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 8, 0)
+	pr_warn("WARNING: Auto-probing of displays is not available on kernel 6.8 and later\n");
+	#endif
+
 	/* Allocate a device number region for the character devices */
 	ret = alloc_chrdev_region(&ddcci_cdev_first, 0, 128, DEVICE_NAME);
 	if (ret < 0) {
