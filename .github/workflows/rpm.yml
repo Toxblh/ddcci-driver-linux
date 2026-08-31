@@ -1,0 +1,42 @@
+name: rpm
+on:
+  push:
+    branches: ['*']
+    tags: ['*']
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # ALT macros (%_unitdir, %systemd_post, ...) need an ALT userspace
+    container:
+      image: altlinux/alt:p11
+    steps:
+      - name: Install build deps
+        run: |
+          set -eu
+          apt-get update -qq
+          apt-get install -y -qq rpm-build git nodejs
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Build source tarball and RPM
+        run: |
+          set -euo pipefail
+          ver="$(sed -n 's/^Version:[[:space:]]*//p' dist/dkms-ddcci.spec | tr -d ' ')"
+          git archive --format=tar --prefix="dkms-ddcci-${ver}/" HEAD > "dkms-ddcci-${ver}.tar"
+          mkdir -p ~/RPM/SOURCES ~/RPM/SPECS
+          cp "dkms-ddcci-${ver}.tar" ~/RPM/SOURCES/
+          cp dist/dkms-ddcci.spec ~/RPM/SPECS/
+          rpmbuild -ba ~/RPM/SPECS/dkms-ddcci.spec
+          mkdir -p out && cp -v ~/RPM/RPMS/noarch/*.rpm ~/RPM/SRPMS/*.src.rpm out/
+
+      - name: Upload RPMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpms
+          path: out/
