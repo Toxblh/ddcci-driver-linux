@@ -11,9 +11,13 @@ env:
 jobs:
   build:
     runs-on: als-huge
-    timeout-minutes: 30
+    timeout-minutes: 40
     container:
       image: altlinux.space/actions/runner/hasherc:sisyphus
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: [sisyphus, p11, p10]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -21,7 +25,9 @@ jobs:
           persist-credentials: false
 
       - uses: actions/build-rpm-action@a29a423f8a77bfa2f5e9b42aa9fae85fa7fc75f5
-        name: Build RPMs
+        name: Build RPMs (${{ matrix.branch }})
+        with:
+          branch: ${{ matrix.branch }}
 
       - name: Remove debuginfo RPMs
         run: |
@@ -32,3 +38,4 @@ jobs:
         with:
           directory: ~/.cache/hasherc/${{ env.APP_NAME }}/out/RPMS
           token: ${{ secrets.TOKEN }}
+          group: ${{ matrix.branch }}
