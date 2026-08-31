@@ -13,14 +13,16 @@ useradd -m builder
 ver="$(sed -n 's/^Version:[[:space:]]*//p' dkms-ddcci.spec | tr -d ' ')"
 git config --global --add safe.directory "$PWD"
 git archive --format=tar --prefix="dkms-ddcci-${ver}/" HEAD > "dkms-ddcci-${ver}.tar"
-install -d /tmp/rpmbuild/SOURCES /tmp/rpmbuild/SPECS /work/out
+install -d /tmp/rpmbuild/SOURCES /tmp/rpmbuild/SPECS
 cp "dkms-ddcci-${ver}.tar" /tmp/rpmbuild/SOURCES/
 cp dkms-ddcci.spec /tmp/rpmbuild/SPECS/
 chown -R builder: /tmp/rpmbuild
-chmod 777 /work/out
 runuser -u builder -- sh -eux -c '
     rpmbuild -ba --define "_topdir /tmp/rpmbuild" /tmp/rpmbuild/SPECS/dkms-ddcci.spec &&
-    cp -v /tmp/rpmbuild/RPMS/noarch/*.rpm /tmp/rpmbuild/SRPMS/*.src.rpm /work/out/
+    install -d /tmp/out &&
+    cp -v /tmp/rpmbuild/RPMS/noarch/*.rpm /tmp/rpmbuild/SRPMS/*.src.rpm /tmp/out/
 '
+install -d /work/out
+cp -v /tmp/out/* /work/out/
 EOF
 echo; ls -la out/

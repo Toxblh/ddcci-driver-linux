@@ -36,11 +36,13 @@ jobs:
           cp "dkms-ddcci-${ver}.tar" /tmp/rpmbuild/SOURCES/
           cp dkms-ddcci.spec /tmp/rpmbuild/SPECS/
           chown -R builder: /tmp/rpmbuild
-          chmod 777 out
           runuser -u builder -- sh -eux -c '
               rpmbuild -ba --define "_topdir /tmp/rpmbuild" /tmp/rpmbuild/SPECS/dkms-ddcci.spec &&
-              cp -v /tmp/rpmbuild/RPMS/noarch/*.rpm /tmp/rpmbuild/SRPMS/*.src.rpm out/
+              install -d /tmp/out &&
+              cp -v /tmp/rpmbuild/RPMS/noarch/*.rpm /tmp/rpmbuild/SRPMS/*.src.rpm /tmp/out/
           '
+          install -d out
+          cp -v /tmp/out/* out/
 
       - name: Upload RPMs
         uses: actions/upload-artifact@v4
