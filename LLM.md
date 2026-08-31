@@ -66,7 +66,7 @@ any submission. Prefer `--redact` unless the maintainers ask for full data.
 | dmesg: `core device [6e] probe failed: -19` | corrupted identify/caps | run `ddcci-report.sh`, attach; check retry logic still present |
 | dmesg: `probe failed: -17` / `duplicate filename` | zombie ddcci kobject pins the bus-device name after a reconnect storm | since 0.4.5-alt3 `ddcci-attach.service` self-heals (retries, then module reset); manually: `sudo modprobe -r ddcci-backlight ddcci`, delete stale `0x37` client, restart the service |
 | slider bounces / brightness flickers | read-cache or reversal suppression regressed | inspect `ddcci-backlight.c`, hex trace shows alternating writes |
-| both sliders drive the external monitor / internal slider gone | GNOME/mutter backlight-mapping bug on device churn (sysfs is fine) | Settings - Displays - turn the external monitor off, Apply, on, Apply; relogin also works; upstream bug, not this driver |
+| both sliders drive the external monitor / internal slider gone | GNOME/mutter backlight-mapping bug on device churn (sysfs is fine) | Settings - Displays - turn the external monitor off, Apply, on, Apply; relogin also works; upstream: https://gitlab.gnome.org/GNOME/mutter/-/issues/5016 |
 | `/sys/class/backlight/ddcci13` missing after boot | service didn't run / no udev trigger | `systemctl status ddcci-attach.service`, `journalctl -u ddcci-attach` |
 
 For deeper tracing (module must be loaded):

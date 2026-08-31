@@ -35,6 +35,7 @@ packaging in `dist/`.
 After a monitor/dock replug GNOME may bind both brightness sliders to the
 external backlight (mutter mapping bug, not this driver). Fix without
 relogin: Settings - Displays - external monitor off - Apply - on - Apply.
+Upstream bug: https://gitlab.gnome.org/GNOME/mutter/-/issues/5016
 
 ## Machine-readable debugging context
 
