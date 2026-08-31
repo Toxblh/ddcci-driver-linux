@@ -1,7 +1,7 @@
 name: rpm
 on:
   push:
-    branches: ['*']
+    branches: [master]
     tags: ['*']
   pull_request:
 
@@ -27,15 +27,16 @@ jobs:
       - name: Build source tarball and RPM
         run: |
           set -euo pipefail
-          git config --global --add safe.directory "$GITHUB_WORKSPACE" ||:
-          git config --global --add safe.directory '*' ||:
-          ver="$(sed -n 's/^Version:[[:space:]]*//p' dist/dkms-ddcci.spec | tr -d ' ')"
+          # rpmbuild refuses to run as root
+          useradd -m builder
+          chown -R builder: .
+          ver="$(sed -n 's/^Version:[[:space:]]*//p' dkms-ddcci.spec | tr -d ' ')"
           git archive --format=tar --prefix="dkms-ddcci-${ver}/" HEAD > "dkms-ddcci-${ver}.tar"
-          mkdir -p ~/RPM/SOURCES ~/RPM/SPECS
-          cp "dkms-ddcci-${ver}.tar" ~/RPM/SOURCES/
-          cp dist/dkms-ddcci.spec ~/RPM/SPECS/
-          rpmbuild -ba ~/RPM/SPECS/dkms-ddcci.spec
-          mkdir -p out && cp -v ~/RPM/RPMS/noarch/*.rpm ~/RPM/SRPMS/*.src.rpm out/
+          install -d -o builder -g builder /tmp/rpmbuild/SOURCES /tmp/rpmbuild/SPECS
+          cp "dkms-ddcci-${ver}.tar" /tmp/rpmbuild/SOURCES/
+          cp dkms-ddcci.spec /tmp/rpmbuild/SPECS/
+          runuser -u builder -- rpmbuild -ba --define "_topdir /tmp/rpmbuild" /tmp/rpmbuild/SPECS/dkms-ddcci.spec
+          mkdir -p out && cp -v /tmp/rpmbuild/RPMS/noarch/*.rpm /tmp/rpmbuild/SRPMS/*.src.rpm out/
 
       - name: Upload RPMs
         uses: actions/upload-artifact@v4

@@ -6,7 +6,7 @@ License: GPL-2.0-or-later
 Group: Development/Kernel
 BuildArch: noarch
 
-Source0: %name-%version.tar
+Source: %name-%version.tar
 
 Requires: dkms
 Requires: ddcutil
@@ -25,7 +25,7 @@ ships a udev rule + systemd service that instantiate the driver on buses
 found by ddcutil, and a ddcci-report.sh diagnostic for bug reports.
 
 %prep
-%setup -q -n %name-%version
+%setup -q
 
 %install
 mkdir -p %buildroot%_usrsrc/ddcci-%version
