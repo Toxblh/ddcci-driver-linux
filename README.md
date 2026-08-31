@@ -1,3 +1,37 @@
+# ddcci-driver-linux (revived fork) #
+
+The original upstream repository (`github.com/ddcci-driver-linux/ddcci-driver-linux`)
+was deleted from GitHub. This tree continues
+[tastelessjolt's fork](https://github.com/tastelessjolt/ddcci-driver-linux)
+(upstream 0.4.5 + its 6.6/6.10 fixes) and adds the work below, plus ALT Linux
+packaging in `dist/`.
+
+## What is added on top ##
+
+1. **Linux 6.18 build fix** — `bus_type.match` now takes a `const struct device_driver *`.
+2. **Probe reliability for DDC monitors behind USB-C/TBT (tested on Dell U2725QE)**:
+   - a single `0x00` byte write resets the monitor's DDC FIFO before
+     identification (the same trick `ddcutil` uses in its `i2c_detect_x37`);
+   - identification and capabilities exchanges retry both the write and the
+     read — such monitors NACK writes or corrupt reply frames while recovering
+     from other bus traffic (e.g. right after `ddcutil detect`).
+3. **ddcci-backlight polish**:
+   - brightness reads are served from a cache seeded at probe (a real DDC read
+     is ~75 ms and lags behind applied writes, which made GNOME's slider
+     bounce on read-back);
+   - writes that reverse direction within 200 ms are suppressed from reaching
+     the monitor: gnome-shell intermittently fights itself through
+     `logind SetBrightness` at slider extremes and on fast drags. Real drags
+     are monotonic and pass through unchanged.
+4. **Kernel 6.8+ auto-probing workaround** — DRM drivers no longer set
+   `I2C_CLASS_DDC`, so a udev rule + `ddcci-attach.service` instantiate the
+   driver on buses found by `ddcutil`. Includes `ddcci-report.sh`, a one-shot
+   diagnostic bundle good enough for a bug report. See `dist/README-ALT.md`.
+5. **Packaging/CI** — ALT RPM spec (`dist/dkms-ddcci.spec`, dkms-based) built
+   by both Forgejo Actions (altlinux.space) and GitHub Actions.
+
+## Original README ##
+
 # ddcci-driver-linux #
 
 A pair of Linux kernel drivers for DDC/CI monitors.
