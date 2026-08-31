@@ -27,6 +27,8 @@ jobs:
       - name: Build source tarball and RPM
         run: |
           set -euo pipefail
+          git config --global --add safe.directory "$GITHUB_WORKSPACE" ||:
+          git config --global --add safe.directory '*' ||:
           ver="$(sed -n 's/^Version:[[:space:]]*//p' dist/dkms-ddcci.spec | tr -d ' ')"
           git archive --format=tar --prefix="dkms-ddcci-${ver}/" HEAD > "dkms-ddcci-${ver}.tar"
           mkdir -p ~/RPM/SOURCES ~/RPM/SPECS
