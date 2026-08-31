@@ -11,7 +11,7 @@ jobs:
     timeout-minutes: 10
     # ALT macros (%_unitdir, %systemd_post, ...) need an ALT userspace
     container:
-      image: altlinux/alt:p11
+      image: registry.altlinux.org/alt/alt:p11
     steps:
       - name: Install build deps
         run: |
