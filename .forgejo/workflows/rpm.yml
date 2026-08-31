@@ -10,29 +10,27 @@ jobs:
     runs-on: als-huge
     timeout-minutes: 30
     container:
-      image: altlinux.space/actions/runner/hasherc:sisyphus
+      image: altlinux.space/alt-security/sisyphus/hasher:latest
     steps:
       - name: Checkout repository
-        # actions/checkout v4, per ALS docs
         uses: actions/checkout@v4
         with:
           persist-credentials: false
 
-      - name: Build RPMs
-        # actions/build-rpm-action@main resolved on ALS
-        uses: actions/build-rpm-action@a29a423f8a77bfa2f5e9b42aa9fae85fa7fc75f5
-        with:
-          branch: p11
-          packager-name: Toxblh
-          packager-email: toxblh@altlinux.space
+      - name: Build
+        run: |
+          git config --global user.email "toxblh@altlinux.space"
+          git config --global user.name "Toxblh"
+          git add .
+          gear-hsh --commit --no-sisyphus-check=gpg,packager
 
       - name: Remove debuginfo RPMs
         run: |
-          find -L ~/.cache/hasherc/dkms-ddcci/out/RPMS -type f -name '*debuginfo*.rpm' -delete
+          find ~/hasher/repo -type f -name '*debuginfo*.rpm' -delete
 
       - name: Upload RPMs to the ALT package registry
         # SHA from alt-gnome/ReadySet
         uses: actions/upload-rpm-action@7ed97151a2a1f53a5b97f8a9f20778f771bbae59
         with:
-          directory: ~/.cache/hasherc/dkms-ddcci/out/RPMS
+          directory: ~/hasher/repo
           token: ${{ secrets.TOKEN }}
