@@ -23,6 +23,8 @@ jobs:
         uses: actions/build-rpm-action@a29a423f8a77bfa2f5e9b42aa9fae85fa7fc75f5
         with:
           branch: p11
+          packager-name: Toxblh
+          packager-email: toxblh@altlinux.space
 
       - name: Remove debuginfo RPMs
         run: |

@@ -14,9 +14,9 @@ Requires: ddcutil
 %description
 Two Linux kernel drivers for DDC/CI monitors:
 
-* ddcci — bus driver that detects DDC/CI devices on i2c-DDC busses and
+* ddcci - bus driver that detects DDC/CI devices on i2c-DDC busses and
   exposes them on /sys/bus/ddcci;
-* ddcci-backlight — exposes monitor luminance as a standard
+* ddcci-backlight - exposes monitor luminance as a standard
   /sys/class/backlight device, so brightness keys, GNOME/KDE and anything
   else speaking the backlight API control external monitors natively.
 
