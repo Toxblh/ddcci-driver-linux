@@ -332,14 +332,21 @@ static int ddcci_get_caps(struct i2c_client *client, unsigned char addr,
 		return -ENOMEM;
 
 	do {
-		/* Send command */
-		result = ddcci_write(client, addr, true, cmd, sizeof(cmd));
-		if (result < 0)
-			goto err_free;
-		msleep(delay);
-		/* read result chunk */
-		result = ddcci_read(client, addr, true, chunkbuf,
-				    (len > 32) ? 35 : len+3);
+		/* ponytail: some monitors (e.g. Dell U2725QE over USB-C AUX)
+		 * NACK writes or emit a corrupted frame mid-caps while recovering
+		 * from other bus traffic; ddcutil survives by retrying, so retry
+		 * the whole write+read chunk instead of aborting the probe. */
+		int retry;
+		result = -EIO;
+		for (retry = 0; retry < 8 && result < 0; retry++) {
+			msleep(delay + retry * 20);
+			result = ddcci_write(client, addr, true, cmd, sizeof(cmd));
+			if (result < 0)
+				continue;
+			msleep(delay);
+			result = ddcci_read(client, addr, true, chunkbuf,
+					    (len > 32) ? 35 : len+3);
+		}
 		if (result < 0)
 			goto err_free;
 
@@ -401,29 +408,47 @@ static int ddcci_identify_device(struct i2c_client *client, unsigned char addr,
 	quirks = bus_drv_data->quirks;
 	buffer = bus_drv_data->recv_buffer;
 
+	/* ponytail: ddcutil-style single 0x00 byte write resets the monitor's
+	 * DDC FIFO state; without it a probe right after other bus traffic
+	 * (e.g. ddcutil detect) reads a stale garbage stream. */
+	{
+		unsigned char zero = 0x00;
+		i2c_master_send(client, &zero, 1);
+	}
+
 	/* Send Identification command */
-	if (!(quirks & DDCCI_QUIRK_WRITE_BYTEWISE)) {
-		ret = __ddcci_write_block(client, addr, buffer, true, cmd, sizeof(cmd));
-		dev_dbg(&client->dev,
-			"[%02x:%02x] writing identification command in block mode: %d\n",
-			client->addr << 1, addr, ret);
-		if ((ret == -ENXIO)
-		    && i2c_check_functionality(client->adapter,
-					       I2C_FUNC_SMBUS_WRITE_BYTE)) {
-			quirks |= DDCCI_QUIRK_WRITE_BYTEWISE;
-			dev_info(&client->dev,
-				"DDC/CI bus quirk detected: writes must be done bytewise\n");
-			/* Some devices need writing twice after a failed blockwise write */
-			__ddcci_write_bytewise(client, addr, true, cmd, sizeof(cmd));
+	{
+		/* ponytail: writes can NACK while the monitor recovers from other
+		 * bus traffic; retry like ddcutil does. */
+		int wretry;
+		for (wretry = 0; wretry < 5; wretry++) {
+		if (!(quirks & DDCCI_QUIRK_WRITE_BYTEWISE)) {
+				ret = __ddcci_write_block(client, addr, buffer, true, cmd, sizeof(cmd));
+				dev_dbg(&client->dev,
+						"[%02x:%02x] writing identification command in block mode: %d\n",
+						client->addr << 1, addr, ret);
+				if ((ret == -ENXIO)
+				    && i2c_check_functionality(client->adapter,
+										       I2C_FUNC_SMBUS_WRITE_BYTE)) {
+						quirks |= DDCCI_QUIRK_WRITE_BYTEWISE;
+						dev_info(&client->dev,
+								"DDC/CI bus quirk detected: writes must be done bytewise\n");
+						/* Some devices need writing twice after a failed blockwise write */
+						__ddcci_write_bytewise(client, addr, true, cmd, sizeof(cmd));
+						msleep(delay);
+				}
+		}
+		if (ret < 0 && (quirks & DDCCI_QUIRK_WRITE_BYTEWISE)) {
+				ret = __ddcci_write_bytewise(client, addr, true, cmd, sizeof(cmd));
+				dev_dbg(&client->dev,
+						"[%02x:%02x] writing identification command in bytewise mode: %d\n",
+						client->addr << 1, addr, ret);
+		}			if (ret >= 0)
+				break;
 			msleep(delay);
 		}
 	}
-	if (ret < 0 && (quirks & DDCCI_QUIRK_WRITE_BYTEWISE)) {
-		ret = __ddcci_write_bytewise(client, addr, true, cmd, sizeof(cmd));
-		dev_dbg(&client->dev,
-			"[%02x:%02x] writing identification command in bytewise mode: %d\n",
-			client->addr << 1, addr, ret);
-	}
+
 	if (ret < 0)
 		return -ENODEV;
 
@@ -1228,7 +1253,7 @@ static const struct ddcci_device_id *ddcci_match_id(const struct ddcci_device_id
 	return NULL;
 }
 
-static int ddcci_device_match(struct device *dev, struct device_driver *drv)
+static int ddcci_device_match(struct device *dev, const struct device_driver *drv)
 {
 	struct ddcci_device	*device = ddcci_verify_device(dev);
 	struct ddcci_driver	*driver;
