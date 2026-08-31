@@ -10,7 +10,6 @@ Source0: %name-%version.tar
 
 Requires: dkms
 Requires: ddcutil
-PostReq: systemd-units
 
 %description
 Two Linux kernel drivers for DDC/CI monitors:
