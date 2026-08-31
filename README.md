@@ -30,6 +30,12 @@ packaging in `dist/`.
 5. **Packaging/CI** — ALT RPM spec (`dist/dkms-ddcci.spec`, dkms-based) built
    by both Forgejo Actions (altlinux.space) and GitHub Actions.
 
+## GNOME quirk
+
+After a monitor/dock replug GNOME may bind both brightness sliders to the
+external backlight (mutter mapping bug, not this driver). Fix without
+relogin: Settings - Displays - external monitor off - Apply - on - Apply.
+
 ## Machine-readable debugging context
 
 [`LLM.md`](LLM.md) tells any AI assistant how to collect diagnostics
