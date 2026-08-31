@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        branch: [sisyphus, p11, p10]
+        branch: [sisyphus, p11]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
