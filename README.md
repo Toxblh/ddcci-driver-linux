@@ -30,6 +30,29 @@ packaging in `dist/`.
 5. **Packaging/CI** — ALT RPM spec (`dist/dkms-ddcci.spec`, dkms-based) built
    by both Forgejo Actions (altlinux.space) and GitHub Actions.
 
+## Install (ALT Linux / ALT Atomic) ##
+
+One command, picks the right repo branch and starts everything:
+
+```sh
+curl -fsSL https://altlinux.space/toxblh/ddcci-driver-linux/raw/branch/master/dist/install-alt.sh | sudo sh
+```
+
+(GitHub mirror: replace the host part with
+`https://raw.githubusercontent.com/Toxblh/ddcci-driver-linux/master/dist/install-alt.sh`)
+
+Manual equivalent:
+
+```sh
+echo 'rpm https://altlinux.space/api/packages/toxblh/alt/group/sisyphus.repo noarch classic' \
+    > /etc/apt/sources.list.d/ddcci-toxblh.list        # sisyphus or p11 group
+sudo apm system update && sudo apm system install -y kernel-headers-modules-$(uname -r | cut -d. -f1-2) dkms-ddcci
+sudo systemctl enable --now ddcci-attach.service
+```
+
+After a major kernel update install matching `kernel-headers-modules-<X.Y>`;
+`dkms.service` rebuilds the module on the next boot.
+
 ## Original README ##
 
 # ddcci-driver-linux #

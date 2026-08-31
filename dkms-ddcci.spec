@@ -1,6 +1,6 @@
 Name: dkms-ddcci
 Version: 0.4.5
-Release: alt1
+Release: alt2
 Summary: DDC/CI bus and backlight kernel drivers (DKMS)
 License: GPL-2.0-or-later
 Group: Development/Kernel
@@ -37,6 +37,7 @@ install -Dpm755 dist/ddcci-report.sh  %buildroot%_sbindir/ddcci-report
 install -Dpm644 dist/ddcci-attach.service %buildroot%_unitdir/ddcci-attach.service
 install -Dpm644 dist/99-ddcci-attach.rules %buildroot%_udevrulesdir/99-ddcci-attach.rules
 install -Dpm644 dist/ddcci.conf %buildroot/lib/modules-load.d/ddcci.conf
+install -Dpm644 dist/50-ddcci.preset %buildroot/lib/systemd/system-preset/50-ddcci.preset
 
 %post
 dkms add -m ddcci -v %version >/dev/null 2>&1 ||:
@@ -63,9 +64,14 @@ fi
 %_unitdir/ddcci-attach.service
 %_udevrulesdir/99-ddcci-attach.rules
 /lib/modules-load.d/ddcci.conf
+/lib/systemd/system-preset/50-ddcci.preset
 %doc README.md dist/README-ALT.md
 
 %changelog
+* Mon Aug 31 2026 Builder <hasherc-ci@altlinux.org> 0.4.5-alt2
+- systemd preset: enable ddcci-attach.service on install
+- dist/install-alt.sh one-shot installer for ALT / ALT Atomic
+
 * Mon Aug 31 2026 Builder <hasherc-ci@altlinux.org> 0.4.5-alt1
 - Initial build for ALT: base ddcci-driver-linux 0.4.5 (tastelessjolt fork)
   with kernel 6.18 build fix, Dell U2725QE probe reliability fixes and
