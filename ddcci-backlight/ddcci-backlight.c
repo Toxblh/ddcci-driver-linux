@@ -14,6 +14,8 @@
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 #include <linux/backlight.h>
 #include <linux/module.h>
+#include <linux/workqueue.h>
+#include <linux/mutex.h>
 #include <linux/fb.h>
 #include <linux/sysfs.h>
 
@@ -36,6 +38,21 @@ struct ddcci_monitor_drv_data {
 	struct backlight_device *bl_dev;
 	struct device *fb_dev;
 	unsigned char used_vcp;
+	/* ponytail: DDC reads are ~75ms and lag behind applied writes, so GNOME's
+	 * read-after-write made the slider bounce. Serve the cached value;
+	 * OSD changes on the monitor desync until reprobe — acceptable ceiling. */
+	int cached_brightness;
+	bool cache_valid;
+	/* ponytail: gnome-shell fights itself through logind at slider extremes
+	 * (alternating old/target values every ~70ms). Suppress rapid direction
+	 * reversals — real drags are monotonic — so the monitor never sees the
+	 * fight. Reversals apply after the settle window instead of instantly. */
+	struct mutex state_lock;
+	struct delayed_work settle_work;
+	int pending;
+	int last_applied;
+	int prev_applied;
+	unsigned long last_apply_jiffies;
 };
 
 static int ddcci_monitor_writectrl(struct ddcci_device *device,
@@ -106,21 +123,77 @@ static int ddcci_backlight_check_fb(struct backlight_device *bl,
 }
 #endif
 
+#define SETTLE_MS 200
+
+static void ddcci_backlight_apply(struct ddcci_monitor_drv_data *drv_data,
+				  int brightness);
+
 static int ddcci_backlight_update_status(struct backlight_device *bl)
 {
 	struct ddcci_monitor_drv_data *drv_data = bl_get_data(bl);
 	int brightness = bl->props.brightness;
 	int ret;
 
+	dev_dbg(&bl->dev, "set brightness %d (power=%d) by %s\n",
+		brightness, bl->props.power, current->comm);
+
 	if (bl->props.power != FB_BLANK_UNBLANK ||
 	    bl->props.state & BL_CORE_FBBLANK)
 		brightness = 0;
 
-	ret = ddcci_monitor_writectrl(drv_data->device, drv_data->used_vcp,
-				      brightness);
-	if (ret > 0)
-		ret = 0;
-	return ret;
+	mutex_lock(&drv_data->state_lock);
+
+	if (brightness != drv_data->last_applied) {
+		bool same_dir = (drv_data->last_applied - drv_data->prev_applied) *
+				(brightness - drv_data->last_applied) > 0;
+		bool expired = time_after(jiffies,
+				drv_data->last_apply_jiffies +
+				msecs_to_jiffies(SETTLE_MS));
+
+		if (same_dir || expired) {
+			/* kill any stale settle from an earlier suppressed
+			 * echo, or it would re-apply a backwards step later */
+			cancel_delayed_work(&drv_data->settle_work);
+			drv_data->pending = brightness;
+			ddcci_backlight_apply(drv_data, brightness);
+		}
+		else {
+			drv_data->pending = brightness;
+			schedule_delayed_work(&drv_data->settle_work,
+					      msecs_to_jiffies(SETTLE_MS));
+		}
+	} else {
+		cancel_delayed_work(&drv_data->settle_work);
+	}
+
+	mutex_unlock(&drv_data->state_lock);
+	return 0;
+}
+
+static void ddcci_backlight_settle(struct work_struct *work)
+{
+	struct ddcci_monitor_drv_data *drv_data =
+		container_of(to_delayed_work(work),
+			     struct ddcci_monitor_drv_data, settle_work);
+
+	mutex_lock(&drv_data->state_lock);
+	if (drv_data->pending != drv_data->last_applied)
+		ddcci_backlight_apply(drv_data, drv_data->pending);
+	mutex_unlock(&drv_data->state_lock);
+}
+
+static void ddcci_backlight_apply(struct ddcci_monitor_drv_data *drv_data,
+				  int brightness)
+{
+	int ret = ddcci_monitor_writectrl(drv_data->device, drv_data->used_vcp,
+					  brightness);
+	if (ret > 0) {
+		drv_data->prev_applied = drv_data->last_applied;
+		drv_data->last_applied = brightness;
+		drv_data->last_apply_jiffies = jiffies;
+		drv_data->cached_brightness = brightness;
+		drv_data->cache_valid = true;
+	}
 }
 
 static int ddcci_backlight_get_brightness(struct backlight_device *bl)
@@ -128,6 +201,11 @@ static int ddcci_backlight_get_brightness(struct backlight_device *bl)
 	unsigned short value = 0, maxval = 0;
 	int ret;
 	struct ddcci_monitor_drv_data *drv_data = bl_get_data(bl);
+
+	if (drv_data->cache_valid) {
+		bl->props.brightness = drv_data->cached_brightness;
+		return drv_data->cached_brightness;
+	}
 
 	ret = ddcci_monitor_readctrl(drv_data->device, drv_data->used_vcp,
 				     &value, &maxval);
@@ -323,6 +401,11 @@ static int ddcci_monitor_probe(struct ddcci_device *dev,
 	if (!drv_data)
 		return -ENOMEM;
 	drv_data->device = dev;
+	mutex_init(&drv_data->state_lock);
+	INIT_DELAYED_WORK(&drv_data->settle_work, ddcci_backlight_settle);
+	drv_data->pending = -1;
+	drv_data->last_applied = -1;
+	drv_data->prev_applied = -1;
 
 	if (support_bl_white) {
 		/* Try getting backlight level */
@@ -361,6 +444,13 @@ static int ddcci_monitor_probe(struct ddcci_device *dev,
 
 	if (!drv_data->used_vcp)
 		goto err_free;
+
+	/* seed the read cache with the value just probed from the monitor */
+	drv_data->cached_brightness = brightness;
+	drv_data->cache_valid = true;
+	drv_data->pending = brightness;
+	drv_data->last_applied = brightness;
+	drv_data->prev_applied = brightness;
 
 	/* Create brightness device */
 	memset(&props, 0, sizeof(props));
