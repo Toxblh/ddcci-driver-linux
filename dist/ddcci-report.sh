@@ -2,6 +2,8 @@
 # Collect everything needed to debug a ddcci setup. Output: /tmp/ddcci-report-*.txt
 # Attach that file when filing an issue.
 out=/tmp/ddcci-report-$(date +%Y%m%d-%H%M%S).txt
+redact=0
+[ "${1:-}" = "--redact" ] && redact=1
 
 (
 echo "=== ddcci report: $(date -R) ==="
@@ -61,6 +63,15 @@ else
 fi
 echo; echo "=== end of report ==="
 ) > "$out" 2>&1
+
+# privacy: strip identifying data unless the user needs full detail
+if [ "$redact" = 1 ]; then
+    hn=$(hostname)
+    sed -i -e "s/$hn/HOSTNAME/g" \
+        -e 's/Serial number:.*/Serial number: REDACTED/' \
+        -e 's/Binary serial number:.*/Binary serial number: REDACTED/' \
+        -e 's/serial=[0-9]*/serial=REDACTED/g' "$out"
+fi
 
 echo "Report written: $out"
 echo "dmesg probe trace included: $(grep -c 'ddcci' "$out") ddcci lines"

@@ -30,6 +30,13 @@ packaging in `dist/`.
 5. **Packaging/CI** — ALT RPM spec (`dist/dkms-ddcci.spec`, dkms-based) built
    by both Forgejo Actions (altlinux.space) and GitHub Actions.
 
+## Machine-readable debugging context
+
+[](LLM.md) tells any AI assistant how to collect diagnostics
+(), triage known failures, and either file an
+issue or fix + PR. Users: review what gets submitted — reports are gated
+behind your approval and can be redacted.
+
 ## Install (ALT Linux / ALT Atomic) ##
 
 One command, picks the right repo branch and starts everything:
