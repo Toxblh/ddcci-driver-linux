@@ -26,7 +26,7 @@ jobs:
           rel="$(sed -n 's/^Release:[[:space:]]*//p' dist/dkms-ddcci.spec | tr -d ' ')"
           git archive --format=tar --prefix="dkms-ddcci-${ver}/" HEAD > "dkms-ddcci-${ver}.tar"
           mkdir -p ~/rpmbuild/SOURCES ~/rpmbuild/SPECS
-          cp "dkcs-ddcci-${ver}.tar" ~/rpmbuild/SOURCES/ 2>/dev/null || cp "dkms-ddcci-${ver}.tar" ~/rpmbuild/SOURCES/
+          cp "dkms-ddcci-${ver}.tar" ~/rpmbuild/SOURCES/
           cp dist/dkms-ddcci.spec ~/rpmbuild/SPECS/
           rpmbuild -ba ~/rpmbuild/SPECS/dkms-ddcci.spec
           mkdir -p out && cp -v ~/rpmbuild/RPMS/noarch/*.rpm ~/rpmbuild/SRPMS/*.src.rpm out/
