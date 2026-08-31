@@ -1,0 +1,39 @@
+name: rpm
+on:
+  push:
+    branches: ['*']
+    tags: ['*']
+  pull_request:
+
+jobs:
+  build:
+    runs-on: als-tiny
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        # actions/checkout v4.4.0, resolved and validated on ALS
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+
+      - name: Install build deps
+        run: apt-get update -qq && apt-get install -y -qq rpm-build
+
+      - name: Build source tarball and RPM
+        run: |
+          set -euo pipefail
+          ver="$(sed -n 's/^Version:[[:space:]]*//p' dist/dkms-ddcci.spec | tr -d ' ')"
+          rel="$(sed -n 's/^Release:[[:space:]]*//p' dist/dkms-ddcci.spec | tr -d ' ')"
+          git archive --format=tar --prefix="dkms-ddcci-${ver}/" HEAD > "dkms-ddcci-${ver}.tar"
+          mkdir -p ~/rpmbuild/SOURCES ~/rpmbuild/SPECS
+          cp "dkcs-ddcci-${ver}.tar" ~/rpmbuild/SOURCES/ 2>/dev/null || cp "dkms-ddcci-${ver}.tar" ~/rpmbuild/SOURCES/
+          cp dist/dkms-ddcci.spec ~/rpmbuild/SPECS/
+          rpmbuild -ba ~/rpmbuild/SPECS/dkms-ddcci.spec
+          mkdir -p out && cp -v ~/rpmbuild/RPMS/noarch/*.rpm ~/rpmbuild/SRPMS/*.src.rpm out/
+
+      - name: Upload RPMs
+        # actions/upload-artifact v3, SHA resolved from the ALS mirror
+        uses: actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5
+        with:
+          name: rpms
+          path: out/

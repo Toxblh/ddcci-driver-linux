@@ -1,0 +1,10 @@
+[Unit]
+Description=Attach ddcci driver to DDC-capable i2c buses
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ddcci-attach.sh
+
+[Install]
+WantedBy=multi-user.target
