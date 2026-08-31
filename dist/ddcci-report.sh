@@ -70,7 +70,10 @@ if [ "$redact" = 1 ]; then
     sed -i -e "s/$hn/HOSTNAME/g" \
         -e 's/Serial number:.*/Serial number: REDACTED/' \
         -e 's/Binary serial number:.*/Binary serial number: REDACTED/' \
-        -e 's/serial=[0-9]*/serial=REDACTED/g' "$out"
+        -e 's/serial=[0-9]*/serial=REDACTED/g' \
+        -e 's/\(Monitor: *[^:]*:[^:]*\):.*/\1:REDACTED/' \
+        -e 's/edid serial: [0-9]*/edid serial: REDACTED/' \
+        -e 's/\(model(\)/\1/' "$out"
 fi
 
 echo "Report written: $out"
