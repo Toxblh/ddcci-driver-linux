@@ -64,7 +64,7 @@ any submission. Prefer `--redact` unless the maintainers ask for full data.
 | `modprobe: module not found` after kernel update | headers/module not built | `sudo apm system install -y kernel-headers-modules-$(uname -r | cut -d. -f1-2)` then `sudo dkms install ddcci/0.4.5 --force`; `dkms.service` does this on boot |
 | journal: `no DDC device on bus N` | nothing DDC-capable there | run `ddcutil detect`; if empty, monitor/cable issue, not the driver |
 | dmesg: `core device [6e] probe failed: -19` | corrupted identify/caps | run `ddcci-report.sh`, attach; check retry logic still present |
-| dmesg: `probe failed: -17` / `duplicate filename` | stale ddcci device teardown race | `sudo modprobe -r ddcci-backlight ddcci; sudo systemctl start ddcci-attach.service` |
+| dmesg: `probe failed: -17` / `duplicate filename` | zombie ddcci kobject pins the bus-device name after a reconnect storm | since 0.4.5-alt3 `ddcci-attach.service` self-heals (retries, then module reset); manually: `sudo modprobe -r ddcci-backlight ddcci`, delete stale `0x37` client, restart the service |
 | slider bounces / brightness flickers | read-cache or reversal suppression regressed | inspect `ddcci-backlight.c`, hex trace shows alternating writes |
 | `/sys/class/backlight/ddcci13` missing after boot | service didn't run / no udev trigger | `systemctl status ddcci-attach.service`, `journalctl -u ddcci-attach` |
 
