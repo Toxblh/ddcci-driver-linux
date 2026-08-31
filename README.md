@@ -32,9 +32,9 @@ packaging in `dist/`.
 
 ## Machine-readable debugging context
 
-[](LLM.md) tells any AI assistant how to collect diagnostics
-(), triage known failures, and either file an
-issue or fix + PR. Users: review what gets submitted — reports are gated
+[`LLM.md`](LLM.md) tells any AI assistant how to collect diagnostics
+(`ddcci-report.sh [--redact]`), triage known failures, and either file an
+issue or fix + PR. Users: review what gets submitted - reports are gated
 behind your approval and can be redacted.
 
 ## Install (ALT Linux / ALT Atomic) ##
