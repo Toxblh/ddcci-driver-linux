@@ -5,6 +5,9 @@ After=multi-user.target
 [Service]
 Type=oneshot
 ExecStart=/usr/sbin/ddcci-attach
+# reconnect storms can make the attach race a teardown; retry until it sticks
+Restart=on-failure
+RestartSec=10s
 
 [Install]
 WantedBy=multi-user.target

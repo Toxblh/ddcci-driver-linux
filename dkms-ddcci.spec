@@ -1,6 +1,6 @@
 Name: dkms-ddcci
 Version: 0.4.5
-Release: alt2
+Release: alt3
 Summary: DDC/CI bus and backlight kernel drivers (DKMS)
 License: GPL-2.0-or-later
 Group: Development/Kernel
@@ -68,6 +68,11 @@ fi
 %doc README.md dist/README-ALT.md
 
 %changelog
+* Mon Aug 31 2026 Builder <hasherc-ci@altlinux.org> 0.4.5-alt3
+- attach: survive reconnect storms - retry with health check, escalate to
+  module reload (zombie kobjects pin the bus-device name after -17 races),
+  systemd unit restarts on failure
+
 * Mon Aug 31 2026 Builder <hasherc-ci@altlinux.org> 0.4.5-alt2
 - systemd preset: enable ddcci-attach.service on install
 - dist/install-alt.sh one-shot installer for ALT / ALT Atomic

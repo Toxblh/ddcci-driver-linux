@@ -54,7 +54,11 @@ echo; echo "--- live probe trace (dynamic debug) ---"
         /^Display [0-9]/ {inb=1}
         inb && /I2C bus:/ {sub(/.*i2c-/,""); print; inb=0}
     ' | while read -r bus; do
-        echo "ddcci 0x37" > /sys/bus/i2c/devices/i2c-$bus/new_device 2>/dev/null
+        try=0
+        while [ $try -lt 3 ]; do
+            echo "ddcci 0x37" > /sys/bus/i2c/devices/i2c-$bus/new_device 2>/dev/null && break
+            try=$((try + 1)); sleep 3
+        done
     done
     sleep 4
     dmesg | tail -n +$((before + 1)) | grep -i 'ddcci\|i2c.*0037'
