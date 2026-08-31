@@ -66,7 +66,7 @@ fi
 %doc README.md dist/README-ALT.md
 
 %changelog
-* Mon Aug 31 2026 Toxblh <toxblh@altlinux.space> 0.4.5-alt1
+* Mon Aug 31 2026 Builder <hasherc-ci@altlinux.org> 0.4.5-alt1
 - Initial build for ALT: base ddcci-driver-linux 0.4.5 (tastelessjolt fork)
   with kernel 6.18 build fix, Dell U2725QE probe reliability fixes and
   ddcci-backlight read cache / write-reversal suppression.

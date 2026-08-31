@@ -5,32 +5,30 @@ on:
     tags: ['*']
   workflow_dispatch:
 
+env:
+  APP_NAME: dkms-ddcci
+
 jobs:
   build:
     runs-on: als-huge
     timeout-minutes: 30
     container:
-      image: altlinux.space/alt-security/sisyphus/hasher:latest
+      image: altlinux.space/actions/runner/hasherc:sisyphus
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           persist-credentials: false
 
-      - name: Build
-        run: |
-          git config --global user.email "toxblh@altlinux.space"
-          git config --global user.name "Toxblh"
-          git add .
-          gear-hsh --commit --no-sisyphus-check=gpg,packager
+      - uses: actions/build-rpm-action@a29a423f8a77bfa2f5e9b42aa9fae85fa7fc75f5
+        name: Build RPMs
 
       - name: Remove debuginfo RPMs
         run: |
-          find ~/hasher/repo -type f -name '*debuginfo*.rpm' -delete
+          find -L ~/.cache/hasherc/${{ env.APP_NAME }}/out/RPMS -type f -name '*debuginfo*.rpm' -delete
 
-      - name: Upload RPMs to the ALT package registry
-        # SHA from alt-gnome/ReadySet
-        uses: actions/upload-rpm-action@7ed97151a2a1f53a5b97f8a9f20778f771bbae59
+      - uses: actions/upload-rpm-action@7ed97151a2a1f53a5b97f8a9f20778f771bbae59
+        name: Upload RPMs
         with:
-          directory: ~/hasher/repo
+          directory: ~/.cache/hasherc/${{ env.APP_NAME }}/out/RPMS
           token: ${{ secrets.TOKEN }}
