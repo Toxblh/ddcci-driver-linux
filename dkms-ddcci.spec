@@ -1,6 +1,6 @@
 Name: dkms-ddcci
 Version: 0.4.5
-Release: alt3
+Release: alt4
 Summary: DDC/CI bus and backlight kernel drivers (DKMS)
 License: GPL-2.0-or-later
 Group: Development/Kernel
@@ -46,6 +46,9 @@ dkms add -m ddcci -v %version >/dev/null 2>&1 ||:
 dkms install -m ddcci -v %version >/dev/null 2>&1 ||:
 %systemd_post ddcci-attach.service
 udevadm control --reload-rules >/dev/null 2>&1 ||:
+# the rule may load after i2c buses already exist (package installed on a
+# live system): replay their add events so SYSTEMD_WANTS fires
+udevadm trigger --subsystem-match=i2c-dev -c add >/dev/null 2>&1 ||:
 
 %preun
 %systemd_preun ddcci-attach.service
@@ -54,6 +57,9 @@ udevadm control --reload-rules >/dev/null 2>&1 ||:
 dkms remove -m ddcci -v %version --all >/dev/null 2>&1 ||:
 if [ $1 -eq 0 ]; then
 	udevadm control --reload-rules >/dev/null 2>&1 ||:
+# the rule may load after i2c buses already exist (package installed on a
+# live system): replay their add events so SYSTEMD_WANTS fires
+udevadm trigger --subsystem-match=i2c-dev -c add >/dev/null 2>&1 ||:
 fi
 %systemd_postun ddcci-attach.service
 
@@ -68,6 +74,11 @@ fi
 %doc README.md dist/README-ALT.md
 
 %changelog
+* Mon Aug 31 2026 Builder <hasherc-ci@altlinux.org> 0.4.5-alt4
+- stabilize hotplug: rescan once when no DDC displays answer yet;
+  %post replays i2c add events so the udev rule catches buses that
+  registered before package install
+
 * Mon Aug 31 2026 Builder <hasherc-ci@altlinux.org> 0.4.5-alt3
 - attach: survive reconnect storms - retry with health check, escalate to
   module reload (zombie kobjects pin the bus-device name after -17 races),

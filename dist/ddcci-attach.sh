@@ -5,11 +5,19 @@
 # Exits nonzero if any bus stays unattached -> the systemd unit restarts us.
 sleep 2  # let a just-appeared bus settle
 
-buses=$(ddcutil detect --terse 2>/dev/null | awk '
-    /^Display [0-9]/ {inb=1}
-    inb && /I2C bus:/ {sub(/.*i2c-/,""); print; inb=0}
-')
-[ -n "$buses" ] || exit 0
+scan() {
+    ddcutil detect --terse 2>/dev/null | awk '
+        /^Display [0-9]/ {inb=1}
+        inb && /I2C bus:/ {sub(/.*i2c-/,""); print; inb=0}
+    '
+}
+buses=$(scan)
+if [ -z "$buses" ]; then
+    # the bus may exist while the monitor is not DDC-ready yet: rescan once
+    sleep 8
+    buses=$(scan)
+    [ -z "$buses" ] && exit 0
+fi
 
 rc=0
 for bus in $buses; do

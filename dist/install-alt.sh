@@ -31,6 +31,7 @@ fi
 # make sure the module is built for the running kernel
 modinfo ddcci >/dev/null 2>&1 || dkms install ddcci/0.4.5 --force
 
+udevadm trigger --subsystem-match=i2c-dev -c add ||:
 systemctl enable --now ddcci-attach.service
 systemctl start ddcci-attach.service
 
